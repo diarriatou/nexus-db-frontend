@@ -577,7 +577,7 @@ export default function Dashboard() {
       <div className="bg-white rounded-lg shadow p-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center text-sm text-gray-500">
           <div className="flex items-center mb-4 md:mb-0">
-            <span className="mr-4">Version: 2.5.0</span>
+            <span className="mr-4">Version: 1.0</span>
             <span>Dernière actualisation: {refreshTime.toLocaleString()}</span>
           </div>
           <div className="flex space-x-4">

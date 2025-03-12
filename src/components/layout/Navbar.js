@@ -97,7 +97,7 @@ export default function Navbar() {
                 }}
               >
                 <div className="flex items-center space-x-2">
-                  <span className="text-gray-700">Admin</span>
+                  <span className="text-gray-700">Diarra</span>
                   <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-600">
                     <User className="w-5 h-5" />
                   </div>
