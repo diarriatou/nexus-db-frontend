@@ -10,6 +10,7 @@ import DatabaseConfig from './pages/admin/DatabaseConfig';
 import Backups from './pages/admin/Backups';
 import Monitoring from './pages/admin/Monitoring';
 import Documentation from './pages/Documentation';
+import Settings from './pages/admin/Settings';
 
 function App() {
   return (
@@ -23,6 +24,7 @@ function App() {
           <Route path="databases" element={<DatabaseConfig />} />
           <Route path="backups" element={<Backups />} />
           <Route path="monitoring" element={<Monitoring />} />
+          <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>
       <Routes>
