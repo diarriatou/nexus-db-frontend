@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { HardDrive, Calendar, Download, Settings, AlertTriangle, Clock, RefreshCw, Search, ChevronDown, MoreHorizontal, CheckCircle, XCircle, Trash, Edit, X } from 'lucide-react';
+import { HardDrive, Calendar, Settings, AlertTriangle, Clock, RefreshCw, Search, ChevronDown, MoreHorizontal, CheckCircle, XCircle, Trash, Edit, X } from 'lucide-react';
 
 export default function BackupsManagement() {
   // États pour les onglets et les filtres
@@ -292,9 +292,7 @@ export default function BackupsManagement() {
                 <option value="">Sélectionner une base de données</option>
                 <option value="Oracle Production">Oracle Production</option>
                 <option value="MySQL Applications">MySQL Applications</option>
-                <option value="PostgreSQL Analytics">PostgreSQL Analytics</option>
                 <option value="MongoDB Clients">MongoDB Clients</option>
-                <option value="MariaDB Marketing">MariaDB Marketing</option>
               </select>
             </div>
             
@@ -404,9 +402,7 @@ export default function BackupsManagement() {
                 <option value="">Sélectionner une base de données</option>
                 <option value="Oracle Production">Oracle Production</option>
                 <option value="MySQL Applications">MySQL Applications</option>
-                <option value="PostgreSQL Analytics">PostgreSQL Analytics</option>
                 <option value="MongoDB Clients">MongoDB Clients</option>
-                <option value="MariaDB Marketing">MariaDB Marketing</option>
               </select>
             </div>
             
