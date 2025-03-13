@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { HardDrive, Calendar, Settings, AlertTriangle, Clock, RefreshCw, Search, ChevronDown, MoreHorizontal, CheckCircle, XCircle, Trash, Edit, X } from 'lucide-react';
+import { HardDrive, Calendar, Settings, AlertTriangle, Clock, RefreshCw, Search, ChevronDown, CheckCircle, XCircle, Trash, Edit, X } from 'lucide-react';
 
 export default function BackupsManagement() {
   // États pour les onglets et les filtres
