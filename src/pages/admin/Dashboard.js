@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Database, Users, Activity, HardDrive, BarChart2, Clock, AlertTriangle, CheckCircle, Server, FileText, GitCommit, Filter, RefreshCw, Search, Bell, Settings } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Database, Users, Activity, HardDrive, Clock, AlertTriangle, CheckCircle, Server, FileText, GitCommit, Filter, RefreshCw, Search } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 export default function Dashboard() {
@@ -13,7 +13,7 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState('');
 
   // Données simulées pour le graphique avec des valeurs différentes selon la période
-  const performanceDataMap = {
+  const performanceDataMap = useMemo(() => ({
     '7j': [
       { name: 'Lun', MySQL: 85, MongoDB: 90, Oracle: 78 },
       { name: 'Mar', MySQL: 88, MongoDB: 85, Oracle: 82 },
@@ -37,7 +37,7 @@ export default function Dashboard() {
       { name: 'Mai', MySQL: 94, MongoDB: 91, Oracle: 88 },
       { name: 'Juin', MySQL: 97, MongoDB: 94, Oracle: 91 }
     ]
-  };
+  }), []);
   
   const [performanceData, setPerformanceData] = useState(performanceDataMap['7j']);
 
@@ -74,7 +74,7 @@ export default function Dashboard() {
   ]);
 
   // Données simulées pour les insights
-  const [insights, setInsights] = useState([
+  const [insights] = useState([
     { title: 'Performance Oracle', value: '-12%', description: 'vs semaine dernière', trend: 'down', action: 'Vérifier requêtes SQL' },
     { title: 'Croissance MySQL', value: '+8%', description: 'Taux d\'insertion', trend: 'up', action: 'Optimiser indexation' },
     { title: 'Temps de réponse', value: '28ms', description: 'Moyenne journalière', trend: 'stable', action: 'Maintenir' },
@@ -99,7 +99,7 @@ export default function Dashboard() {
         setLoading(false);
       }, 800);
     }
-  }, [activeTimeRange]);
+  }, [activeTimeRange, performanceDataMap]);
 
   // Fonction pour rafraîchir les données
   const refreshData = () => {
