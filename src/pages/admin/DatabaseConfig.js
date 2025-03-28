@@ -87,7 +87,7 @@ export default function DatabaseConfig() {
         setFormData({ ...formData, port: portDefaults[formData.type] });
       }
     }
-  }, [formData.type]);
+  }, [editMode, formData]);
 
   // Tester une connexion
   const testConnection = (id) => {
@@ -277,11 +277,10 @@ export default function DatabaseConfig() {
             className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
           >
             <option value="mysql">MySQL</option>
-            <option value="postgresql">PostgreSQL</option>
             <option value="oracle">Oracle</option>
-            <option value="sqlserver">SQL Server</option>
+
             <option value="mongodb">MongoDB</option>
-            <option value="other">Autre</option>
+          
           </select>
         </div>
         

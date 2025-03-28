@@ -13,7 +13,7 @@ export default function LandingPage() {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
               <Database className="h-8 w-8 text-blue-600" />
-              <span className="ml-2 text-2xl font-bold text-gray-900">UnityDBPro</span>
+              <span className="ml-2 text-2xl font-bold text-gray-900">UnityDB</span>
             </div>
             <div className="flex items-center space-x-4">
             <button 
@@ -42,7 +42,7 @@ export default function LandingPage() {
               <span className="block text-blue-600">en toute simplicité</span>
             </h1>
             <p className="mt-3 max-w-md mx-auto text-base text-gray-500 sm:text-lg md:mt-5 md:text-xl md:max-w-3xl">
-              Une plateforme unique pour administrer, monitorer et sécuriser vos bases de données Oracle, MySQL et MongoDB.
+              Une plateforme unique pour administrer, monitorer et Sauvegarder vos bases de données Oracle, MySQL et MongoDB.
             </p>
             <div className="mt-5 max-w-md mx-auto sm:flex sm:justify-center md:mt-8">
               <button 
@@ -97,58 +97,58 @@ export default function LandingPage() {
       </div>
 
       {/* Features Section */}
-      <div className="py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-extrabold text-gray-900">
-              Fonctionnalités principales
-            </h2>
+        <div className="py-12">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-12">
+          <h2 className="text-3xl font-extrabold text-gray-900">
+            Nos Services
+          </h2>
+            </div>
+            <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
+          <div className="text-center">
+            <div className="flex justify-center">
+              <Database className="h-12 w-12 text-blue-600" />
+            </div>
+            <h3 className="mt-4 text-xl font-medium text-gray-900">
+              Administration Unifiée
+            </h3>
+            <p className="mt-2 text-gray-600">
+              Interface unique pour gérer toutes vos bases de données.
+            </p>
           </div>
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
-            <div className="text-center">
-              <div className="flex justify-center">
-                <Database className="h-12 w-12 text-blue-600" />
-              </div>
-              <h3 className="mt-4 text-xl font-medium text-gray-900">
-                Administration Unifiée
-              </h3>
-              <p className="mt-2 text-gray-600">
-                Interface unique pour gérer toutes vos bases de données.
-              </p>
+          
+          <div className="text-center">
+            <div className="flex justify-center">
+              <BarChart2 className="h-12 w-12 text-blue-600" />
             </div>
-            
-            <div className="text-center">
-              <div className="flex justify-center">
-                <BarChart2 className="h-12 w-12 text-blue-600" />
-              </div>
-              <h3 className="mt-4 text-xl font-medium text-gray-900">
-                Monitoring Temps Réel
-              </h3>
-              <p className="mt-2 text-gray-600">
-                Surveillance continue des performances et alertes instantanées.
-              </p>
+            <h3 className="mt-4 text-xl font-medium text-gray-900">
+              Monitoring Temps Réel
+            </h3>
+            <p className="mt-2 text-gray-600">
+              Surveillance continue des performances et alertes instantanées.
+            </p>
+          </div>
+          
+          <div className="text-center">
+            <div className="flex justify-center">
+              <Shield className="h-12 w-12 text-blue-600" />
             </div>
-            
-            <div className="text-center">
-              <div className="flex justify-center">
-                <Shield className="h-12 w-12 text-blue-600" />
-              </div>
-              <h3 className="mt-4 text-xl font-medium text-gray-900">
-                Sécurité Avancée
-              </h3>
-              <p className="mt-2 text-gray-600">
-                Gestion des accès et protection des données renforcée.
-              </p>
+            <h3 className="mt-4 text-xl font-medium text-gray-900">
+              Sauvegarde et Restauration
+            </h3>
+            <p className="mt-2 text-gray-600">
+              Sauvegarde automatisée et restauration rapide pour garantir la sécurité et l'intégrité de vos données.
+            </p>
+          </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Footer */}
+        {/* Footer */}
       <footer className="bg-gray-50">
         <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <p className="text-gray-500">© 2024 UnityDBPro. Tous droits réservés.</p>
+            <p className="text-gray-500">© 2024 UnityDB. Tous droits réservés.</p>
           </div>
         </div>
       </footer>

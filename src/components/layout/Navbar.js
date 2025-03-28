@@ -81,7 +81,7 @@ export default function Navbar() {
                     )}
                   </div>
                   <div className="py-2 px-4 bg-gray-50 border-t">
-                    <a href="#" className="text-xs text-blue-600 hover:text-blue-800">Voir toutes les notifications</a>
+                    <button className="text-xs text-blue-600 hover:text-blue-800">Voir toutes les notifications</button>
                   </div>
                 </div>
               )}
@@ -97,7 +97,7 @@ export default function Navbar() {
                 }}
               >
                 <div className="flex items-center space-x-2">
-                  <span className="text-gray-700">Diarra</span>
+                  <span className="text-gray-700">Admin</span>
                   <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-600">
                     <User className="w-5 h-5" />
                   </div>
@@ -109,19 +109,19 @@ export default function Navbar() {
               {profileOpen && (
                 <div className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5">
                   <div className="py-1">
-                    <a href="#" className="flex px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                    <button className="w-full text-left flex px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                       <User className="w-4 h-4 mr-2" /> Mon profil
-                    </a>
-                    <a href="#" className="flex px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                    </button>
+                    <button className="w-full text-left flex px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                       <Settings className="w-4 h-4 mr-2" /> Paramètres
-                    </a>
-                    <a href="#" className="flex px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                    </button>
+                    <button className="w-full text-left flex px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                       <UserPlus className="w-4 h-4 mr-2" /> Gestion utilisateurs
-                    </a>
+                    </button>
                     <hr className="my-1" />
-                    <a href="#" className="flex px-4 py-2 text-sm text-red-600 hover:bg-gray-100">
+                    <button className="w-full text-left flex px-4 py-2 text-sm text-red-600 hover:bg-gray-100">
                       <LogOut className="w-4 h-4 mr-2" /> Déconnexion
-                    </a>
+                    </button>
                   </div>
                 </div>
               )}
@@ -145,20 +145,20 @@ export default function Navbar() {
                 )}
               </button>
               
-              <a href="#" className="flex items-center px-3 py-2 text-base font-medium text-gray-700 rounded-md hover:bg-gray-100">
+              <button className="flex items-center w-full px-3 py-2 text-base font-medium text-gray-700 rounded-md hover:bg-gray-100">
                 <User className="w-5 h-5 mr-2 text-gray-500" />
                 <span>Profil</span>
-              </a>
+              </button>
               
-              <a href="#" className="flex items-center px-3 py-2 text-base font-medium text-gray-700 rounded-md hover:bg-gray-100">
+              <button className="flex items-center w-full px-3 py-2 text-base font-medium text-gray-700 rounded-md hover:bg-gray-100">
                 <Settings className="w-5 h-5 mr-2 text-gray-500" />
                 <span>Paramètres</span>
-              </a>
+              </button>
               
-              <a href="#" className="flex items-center px-3 py-2 text-base font-medium text-red-600 rounded-md hover:bg-gray-100">
+              <button className="flex items-center w-full px-3 py-2 text-base font-medium text-red-600 rounded-md hover:bg-gray-100">
                 <LogOut className="w-5 h-5 mr-2" />
                 <span>Déconnexion</span>
-              </a>
+              </button>
             </div>
           </div>
         )}

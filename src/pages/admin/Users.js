@@ -1,8 +1,6 @@
-import React, { useState } from 'react';
-import { 
-  Users, UserPlus, Search, Filter, MoreHorizontal, Edit, Trash2, 
-  Shield, Database, X, Check, AlertCircle, Eye, EyeOff 
-} from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Users, UserPlus, Search, Filter, MoreHorizontal, Edit, Trash2, Shield, Database, X, Check, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import API from '../../api';
 
 export default function UsersManagement() {
   // États de la page principale
@@ -17,69 +15,23 @@ export default function UsersManagement() {
   const [currentPage, setCurrentPage] = useState(1);
   const usersPerPage = 5;
 
+
+  
   // Exemple de données utilisateurs
   const [users, setUsers] = useState([
-    {
-      id: 1,
-      name: "Diarra",
-      email: "diarra@example.com",
-      role: "DBA",
-      databases: ["Oracle", "MySQL"],
-      status: "Actif",
-      lastActive: "Aujourd'hui",
-      password: "••••••••"
-    },
-    {
-      id: 2,
-      name: "Sophie Martin",
-      email: "sophie.martin@example.com",
-      role: "Administrateur",
-      databases: ["MongoDB", "PostgreSQL"],
-      status: "Actif",
-      lastActive: "Hier",
-      password: "••••••••"
-    },
-    {
-      id: 3,
-      name: "Jean Dubois",
-      email: "jean.dubois@example.com",
-      role: "Utilisateur",
-      databases: ["MySQL"],
-      status: "Inactif",
-      lastActive: "Il y a 2 semaines",
-      password: "••••••••"
-    },
-    {
-      id: 4,
-      name: "Amélie Petit",
-      email: "amelie@example.com",
-      role: "DBA",
-      databases: ["PostgreSQL"],
-      status: "Actif",
-      lastActive: "Il y a 3 jours",
-      password: "••••••••"
-    },
-    {
-      id: 5,
-      name: "Thomas Bernard",
-      email: "thomas@example.com",
-      role: "Utilisateur",
-      databases: ["Oracle"],
-      status: "Inactif",
-      lastActive: "Il y a 1 mois",
-      password: "••••••••"
-    },
-    {
-      id: 6,
-      name: "Marie Laurent",
-      email: "marie@example.com",
-      role: "Administrateur",
-      databases: ["MongoDB", "MySQL", "PostgreSQL"],
-      status: "Actif",
-      lastActive: "Aujourd'hui",
-      password: "••••••••"
-    }
+    // {
+    //   id: 1,
+    //   name: "Diarra",
+    //   email: "diarra@example.com",
+    //   role: "DBA",
+    //   databases: ["Oracle", "MySQL"],
+    //   status: "Actif",
+    //   lastActive: "Aujourd'hui",
+    //   password: "••••••••"
+    // }
   ]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   // État pour le formulaire d'utilisateur
   const initialFormState = {
@@ -98,7 +50,207 @@ export default function UsersManagement() {
   // Options disponibles
   const roleOptions = ['Administrateur', 'DBA', 'Utilisateur'];
   const statusOptions = ['Actif', 'Inactif'];
-  const databaseOptions = ['MySQL', 'PostgreSQL', 'Oracle', 'MongoDB', 'SQLite', 'SQL Server'];
+  const [databaseOptions, setDatabaseOptions] = useState(['MySQL', 'Oracle', 'MongoDB']);
+
+  // Configurer l'en-tête d'autorisation pour toutes les requêtes
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      API.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    } else {
+      // Rediriger vers la page de connexion si le token n'est pas présent
+      window.location = "/login";
+    }
+  }, []);
+
+  //Charger les utilisateur et les bases au demarrage
+  useEffect(()=>{
+    fetchUsers();
+    fetchDatabases();
+  },[]);
+
+  // Fonction pour récupérer les utilisateurs depuis l'API
+  const fetchUsers = async () => {
+    setLoading(true);
+    try {
+      const response = await API.get('/api/users');
+      
+      // Transformation des données de l'API au format frontend
+      const formattedUsers = response.data.map(user => ({
+        id: user.id,
+        name: user.full_name || user.email.split('@')[0],
+        email: user.email,
+        role: user.is_superuser ? 'Administrateur' : user.is_dba ? 'DBA' : 'Utilisateur',
+        databases: user.managed_databases?.map(db => db.name) || [],
+        status: user.is_active ? 'Actif' : 'Inactif',
+        lastActive: user.last_login ? new Date(user.last_login).toLocaleDateString() : 'Jamais',
+        password: "••••••••"
+      }));
+      
+      setUsers(formattedUsers);
+    } catch (err) {
+      console.error('Erreur lors de la récupération des utilisateurs:', err);
+      
+      if (err.response && err.response.status === 401) {
+        // Token expiré ou invalide
+        localStorage.removeItem('token');
+        window.location = "/login";
+      } else {
+        setError('Impossible de charger les utilisateurs');
+        // Garder les données de test en cas d'échec
+        setUsers([{
+          id: 1,
+          name: "Diarra",
+          email: "diarra@example.com",
+          role: "DBA",
+          databases: ["Oracle", "MySQL"],
+          status: "Actif",
+          lastActive: "Aujourd'hui",
+          password: "••••••••"
+        }]);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fonction pour récupérer les bases de données depuis l'API
+  const fetchDatabases = async () => {
+    try {
+      const response = await API.get('/api/users/databases');
+      if (response.data && response.data.length > 0) {
+        const dbNames = response.data.map(db => db.name);
+        setDatabaseOptions(dbNames);
+      }
+    } catch (err) {
+      console.error('Erreur lors de la récupération des bases de données:', err);
+      // On garde les options par défaut en cas d'erreur
+    }
+  };
+
+  // Fonction modifiée pour créer/mettre à jour un utilisateur via l'API
+  const handleSubmitForm = async (e) => {
+    e.preventDefault();
+    
+    const errors = validateForm();
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
+    
+    setLoading(true);
+    
+    try {
+      // Préparation des données pour l'API selon le format attendu par votre backend
+      const userData = {
+        email: formData.email,
+        password: formData.password,
+        full_name: formData.name,
+        is_active: formData.status === 'Actif',
+        is_superuser: formData.role === 'Administrateur',
+        is_dba: formData.role === 'DBA',
+      };
+      
+      if (currentUser) {
+        // Mise à jour d'un utilisateur existant
+        await API.put(`/api/users/${currentUser.id}`, userData);
+        
+        // Synchroniser les bases de données pour cet utilisateur
+        await syncUserDatabases(currentUser.id, formData.databases);
+        
+        showNotification(`L'utilisateur ${formData.name} a été mis à jour.`);
+      } else {
+        // Ajout d'un nouvel utilisateur
+        const response = await API.post('/api/users', userData);
+        const newUserId = response.data.id;
+        
+        // Synchroniser les bases de données pour ce nouvel utilisateur
+        await syncUserDatabases(newUserId, formData.databases);
+        
+        showNotification(`L'utilisateur ${formData.name} a été créé.`);
+      }
+      
+      setShowUserFormModal(false);
+      setFormData(initialFormState);
+      
+      // Rafraîchir la liste des utilisateurs pour avoir les données à jour
+      fetchUsers();
+      
+    } catch (err) {
+      console.error('Erreur lors de la sauvegarde:', err);
+      showNotification(`Erreur: ${err.response?.data?.detail || "Une erreur est survenue"}`, "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
+  // Fonction pour synchroniser les bases de données d'un utilisateur
+  const syncUserDatabases = async (userId, databases) => {
+    try {
+
+      //1.Récupérer la liste des bases de données disponibles
+      const dbResponse = await API.get('/api/users/databases');
+      const allDatabases = dbResponse.data.map(db => db.name);
+
+      //2.Filtrer pour obtenir les IDs des bases de données sélectionnées
+      const selectedDatabasesIDs = allDatabases
+       .filter(db => databases.includes(db.name))
+       .map(db => db.id);
+
+       //3.Appeler un endpoint dedie pour mettre a jour les associations
+       await API.post(`/api/users/${userId}/update-databases`, {
+        database_ids: selectedDatabasesIDs,
+        // Vous pourriez ajouter d'autres informations nécessaires pour UserDatabaseMapping ici
+        default_database_username: userId.toString(), // exemple
+        default_database_roles: JSON.stringify(["read", "write"]) // exemple
+      });
+    
+      
+      // Pour chaque base de données sélectionnée
+      for (const dbName of databases) {
+        // Trouver l'ID de la base de données
+        const dbResponse = await API.get('/api/users/databases');
+        const database = dbResponse.data.find(db => db.name === dbName);
+        
+        if (database) {
+          // Créer le mapping utilisateur-base de données
+          await API.post('/api/users/sync-with-database', {
+            user_id: userId,
+            database_id: database.id,
+            can_read: true,
+            can_write: true
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Erreur lors de la synchronisation des bases de données:', err);
+      
+    }
+  };
+
+  // Fonction modifiée pour supprimer un utilisateur via l'API
+  const handleDeleteUser = async () => {
+    try {
+      await API.delete(`/api/users/${userToDelete.id}`);
+      setUsers(users.filter(user => user.id !== userToDelete.id));
+      setShowDeleteModal(false);
+      showNotification(`L'utilisateur ${userToDelete.name} a été supprimé.`);
+      setUserToDelete(null);
+    } catch (err) {
+      console.error('Erreur lors de la suppression:', err);
+      showNotification(`Erreur: ${err.response?.data?.detail || "Une erreur est survenue"}`, "error");
+    }
+  };
+
+  // Fonction améliorée pour afficher des notifications avec type
+  const showNotification = (message, type = "success") => {
+    setNotification({ message, type });
+    setTimeout(() => {
+      setNotification(null);
+    }, 3000);
+  };
+
 
   // Fonction pour filtrer les utilisateurs
   const filteredUsers = users.filter(user => {
@@ -144,12 +296,7 @@ export default function UsersManagement() {
     setShowDeleteModal(true);
   };
 
-  const handleDeleteUser = () => {
-    setUsers(users.filter(user => user.id !== userToDelete.id));
-    setShowDeleteModal(false);
-    showNotification(`L'utilisateur ${userToDelete.name} a été supprimé.`);
-    setUserToDelete(null);
-  };
+  // Function removed to avoid duplicate declaration
 
   const handleFormChange = (e) => {
     const { name, value } = e.target;
@@ -207,57 +354,6 @@ export default function UsersManagement() {
     return errors;
   };
 
-  const handleSubmitForm = (e) => {
-    e.preventDefault();
-    
-    const errors = validateForm();
-    if (Object.keys(errors).length > 0) {
-      setFormErrors(errors);
-      return;
-    }
-    
-    if (currentUser) {
-      // Mise à jour d'un utilisateur existant
-      setUsers(users.map(user => 
-        user.id === currentUser.id 
-          ? { 
-              ...user, 
-              name: formData.name, 
-              email: formData.email,
-              role: formData.role,
-              databases: formData.databases,
-              status: formData.status,
-              password: formData.password ? "••••••••" : user.password
-            } 
-          : user
-      ));
-      showNotification(`L'utilisateur ${formData.name} a été mis à jour.`);
-    } else {
-      // Ajout d'un nouvel utilisateur
-      const newUser = {
-        id: users.length > 0 ? Math.max(...users.map(u => u.id)) + 1 : 1,
-        name: formData.name,
-        email: formData.email,
-        role: formData.role,
-        databases: formData.databases,
-        status: formData.status,
-        lastActive: "Jamais",
-        password: "••••••••"
-      };
-      setUsers([...users, newUser]);
-      showNotification(`L'utilisateur ${formData.name} a été créé.`);
-    }
-    
-    setShowUserFormModal(false);
-    setFormData(initialFormState);
-  };
-
-  const showNotification = (message) => {
-    setNotification(message);
-    setTimeout(() => {
-      setNotification(null);
-    }, 3000);
-  };
 
   // Obtenir la couleur appropriée pour le badge de statut
   const getStatusColor = (status) => {
@@ -276,19 +372,20 @@ export default function UsersManagement() {
       default: return <Users className="h-4 w-4 mr-1" />;
     }
   };
+  
 
   return (
     <div className="bg-gray-50 min-h-screen">
       <div className="p-6 max-w-full mx-auto">
         {/* Notification */}
         {notification && (
-          <div className="fixed top-4 right-4 bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded shadow-md transition-opacity duration-300 z-50">
+          <div className={`fixed top-4 right-4 ${notification.type === "error" ? "bg-red-100 border-red-500 text-red-700" : "bg-green-100 border-green-500 text-green-700"} border-l-4 p-4 rounded shadow-md transition-opacity duration-300 z-50`}>
             <div className="flex items-center">
-              <Check className="h-5 w-5 mr-2" />
-              <p>{notification}</p>
-            </div>
+              {notification.type === "error" ? <AlertCircle className="h-5 w-5 mr-2" /> : <Check className="h-5 w-5 mr-2" />}
+              <p>{notification.message}</p> {/* Ici on accède à la propriété message */}
           </div>
-        )}
+        </div>
+    )}
         
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold text-gray-800">Gestion des Utilisateurs</h1>

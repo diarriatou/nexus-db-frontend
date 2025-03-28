@@ -23,7 +23,7 @@ export default function Sidebar() {
     { path: '/admin/dashboard', icon: Home, name: 'Dashboard' },
     { path: '/admin/databases', icon: Database, name: 'Bases de données' },
     { path: '/admin/users', icon: Users, name: 'Utilisateurs' },
-    { path: '/admin/monitoring', icon: BarChart2, name: 'Monitoring' },
+    { path: '/admin/monitoring', icon: BarChart2, name: 'Surveillances' },
     { path: '/admin/backups', icon: HardDrive, name: 'Sauvegardes' },
     { path: '/admin/settings', icon: Settings, name: 'Paramètres' },
   ];

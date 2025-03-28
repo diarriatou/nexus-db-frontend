@@ -5,12 +5,13 @@ import API from '../api';
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState(null);
+  const [error, setError] = useState();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await API.post('/api/v1/auth/login', {
+      
+      const response = await API.post('/api/users/token', {
         email: email,
         password: password,
       });
@@ -35,8 +36,8 @@ export default function Login() {
           <div className="flex justify-center">
             <Database className="h-12 w-12 text-blue-600" />
           </div>
-          <h2 className="mt-6 text-3xl font-bold text-gray-900">UnityDBPro</h2>
-          <p className="mt-2 text-sm text-gray-600">Unifier • Monitorer • Securiser</p>
+          <h2 className="mt-6 text-3xl font-bold text-gray-900">UnityDB</h2>
+          <p className="mt-2 text-sm text-gray-600">Unifier • Monitorer • Sauvegarder</p>
         </div>
 
         {/* Formulaire de connexion */}

@@ -7,7 +7,7 @@ export default function Documentation() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* En-tête Documentation */}
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">Documentation UnityDBPro</h1>
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">Documentation UnityDB</h1>
           <p className="text-xl text-gray-600">Guide complet d'utilisation de la plateforme</p>
         </div>
 
@@ -20,7 +20,7 @@ export default function Documentation() {
               <h2 className="text-2xl font-bold text-gray-900">Démarrage Rapide</h2>
             </div>
             <div className="prose max-w-none">
-              <p className="text-gray-600">Pour commencer à utiliser UnityDBPro :</p>
+              <p className="text-gray-600">Pour commencer à utiliser UnityDB :</p>
               <ol className="list-decimal pl-5 mt-4 space-y-2">
                 <li>Connectez-vous avec vos identifiants</li>
                 <li>Configurez vos premières connexions aux bases de données</li>

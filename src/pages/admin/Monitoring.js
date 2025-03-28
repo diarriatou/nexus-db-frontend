@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart2, Activity, AlertTriangle, Server, Database, Clock, RefreshCw, Filter, ChevronDown, Download } from 'lucide-react';
 import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import axios from 'axios';
 
 export default function Monitoring() {
   // État pour les données de performance
@@ -33,7 +34,7 @@ export default function Monitoring() {
   const [selectedDatabases, setSelectedDatabases] = useState(['oracle', 'mysql', 'mongodb']);
   
   // État pour les alertes
-  const [alerts] = useState([
+  const [alerts, setAlerts] = useState([
     { id: 1, db: 'MySQL', type: 'Latence', message: 'Temps de réponse élevé', timestamp: '11/03/2025 14:32', severity: 'warning' },
     { id: 2, db: 'Oracle', type: 'Espace', message: 'Espace disque faible', timestamp: '11/03/2025 10:15', severity: 'critical' }
   ]);
@@ -44,6 +45,187 @@ export default function Monitoring() {
   // État pour le menu déroulant des filtres
   const [showFilters, setShowFilters] = useState(false);
 
+  // Nouveaux états pour les données du backend
+  const [databases, setDatabases] = useState([]);
+  const [, setDatabaseSummaries] = useState([]);
+
+
+  // Fonction pour charger les données du tableau de bord
+  const loadDashboardData = async () => {
+    setLoading(true);
+    try {
+      // Récupérer toutes les connexions de base de données
+      const connectionsResponse = await axios.get('/api/monitoring/connections');
+      const connections = connectionsResponse.data;
+      
+      // Récupérer le résumé pour chaque base de données
+      const summaries = await Promise.all(
+        connections.map(conn => axios.get(`/api/monitoring/summary/${conn.id}`))
+      );
+      
+      // Récupérer les alertes actives
+      const alertsResponse = await axios.get('/api/monitoring/alerts?resolved=false&limit=10');
+      
+      // Mise à jour des états
+      setDatabases(connections);
+      setDatabaseSummaries(summaries.map(res => res.data));
+      setAlerts(alertsResponse.data);
+      
+      // Mise à jour des métriques globales
+      updateGlobalMetrics(summaries.map(res => res.data));
+      
+      // Charger les métriques historiques pour le graphique
+      if (connections.length > 0) {
+        await loadHistoricalMetrics(connections.map(conn => conn.id), timeRange);
+      }
+    } catch (error) {
+      console.error('Erreur lors du chargement des données :', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Fonction pour mettre à jour les métriques globales
+  const updateGlobalMetrics = (summaries) => {
+    // Calculer les moyennes et agréger les données
+    const totalAlerts = summaries.reduce((sum, s) => sum + s.active_alerts, 0);
+    const avgCpu = summaries.reduce((sum, s) => sum + (s.latest_metrics?.cpu_usage || 0), 0) / summaries.length;
+    const avgMemory = summaries.reduce((sum, s) => sum + (s.latest_metrics?.memory_usage || 0), 0) / summaries.length;
+    const totalConnections = summaries.reduce((sum, s) => sum + (s.latest_metrics?.connections_count || 0), 0);
+    
+    setMetrics({
+      cpu: Math.round(avgCpu),
+      memory: avgMemory.toFixed(1),
+      alerts: totalAlerts,
+      uptime: '21 jours', // À remplacer par des données réelles si disponibles
+      connections: totalConnections,
+      responseTime: 42 // À remplacer par des données réelles
+    });
+  };
+  
+  // Fonction pour charger les métriques historiques
+  const loadHistoricalMetrics = async (databaseIds, timeRange) => {
+    const startTime = getStartTimeFromRange(timeRange);
+    
+    try {
+      const metricsPromises = databaseIds.map(dbId => 
+        axios.get(`/api/monitoring/metrics/${dbId}?start_time=${startTime.toISOString()}`)
+      );
+      
+      const metricsResponses = await Promise.all(metricsPromises);
+      
+      // Transformer les données pour le graphique
+      const formattedData = formatMetricsForChart(metricsResponses.map(res => res.data), databaseIds);
+      setPerformanceData(formattedData);
+    } catch (error) {
+      console.error('Erreur lors du chargement des métriques :', error);
+    }
+  };
+  
+  // Fonction pour obtenir la date de début en fonction de la plage de temps
+  const getStartTimeFromRange = (range) => {
+    const now = new Date();
+    switch(range) {
+      case '6h': return new Date(now - 6 * 60 * 60 * 1000);
+      case '24h': return new Date(now - 24 * 60 * 60 * 1000);
+      case '7j': return new Date(now - 7 * 24 * 60 * 60 * 1000);
+      case '30j': return new Date(now - 30 * 24 * 60 * 60 * 1000);
+      default: return new Date(now - 24 * 60 * 60 * 1000);
+    }
+  };
+  
+  // Fonction pour formater les données de métriques
+  const formatMetricsForChart = (metricsArrays, databaseIds) => {
+    const dbNames = databases.reduce((acc, db) => {
+      acc[db.id] = db.db_type.toLowerCase(); // Utiliser le type de BD (mysql, oracle, mongodb)
+      return acc;
+    }, {});
+    
+    // Créer une map des timestamps aux données
+    const timeMap = {};
+    
+    // Pour chaque base de données
+    metricsArrays.forEach((metrics, index) => {
+      const dbId = databaseIds[index];
+      const dbType = dbNames[dbId]; // oracle, mysql, mongodb
+      
+      // Pour chaque point de métrique
+      metrics.forEach(metric => {
+        const time = new Date(metric.timestamp).toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'});
+        
+        if (!timeMap[time]) {
+          timeMap[time] = { time };
+        }
+        
+        // Ajouter les données CPU de cette BD
+        timeMap[time][dbType] = metric.cpu_usage;
+      });
+    });
+    
+    // Convertir la map en tableau pour le graphique
+    return Object.values(timeMap).sort((a, b) => {
+      return new Date('1970/01/01 ' + a.time) - new Date('1970/01/01 ' + b.time);
+    });
+  };
+  
+  // Fonction pour déclencher une collecte manuelle
+  const triggerManualCollection = async () => {
+    setLoading(true);
+    try {
+      // Collecter les métriques pour toutes les BDs
+      await Promise.all(databases.map(db => 
+        axios.post(`/api/monitoring/metrics/collect/${db.id}`)
+      ));
+      await loadDashboardData(); // Recharger les données après la collecte
+    } catch (error) {
+      console.error(`Erreur lors de la collecte des métriques:`, error);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Fonction pour résoudre une alerte
+  const resolveAlert = async (alertId) => {
+    try {
+      await axios.put(`/api/monitoring/alerts/${alertId}/resolve`);
+      // Mettre à jour la liste des alertes
+      const alertsResponse = await axios.get('/api/monitoring/alerts?resolved=false&limit=10');
+      setAlerts(alertsResponse.data);
+    } catch (error) {
+      console.error(`Erreur lors de la résolution de l'alerte ${alertId}:`, error);
+    }
+  };
+  
+  // Remplacer votre fonction refreshData existante
+  const refreshData = () => {
+    triggerManualCollection();
+  };
+  
+  // Modifier votre fonction changeTimeRange pour utiliser l'API
+  const changeTimeRange = (range) => {
+    setTimeRange(range);
+    setLoading(true);
+    
+    if (databases.length > 0) {
+      loadHistoricalMetrics(databases.map(db => db.id), range)
+        .finally(() => setLoading(false));
+    } else {
+      setLoading(false);
+    }
+  };
+  
+  // Utiliser useEffect pour charger les données au démarrage
+  useEffect(() => {
+    loadDashboardData();
+    
+    // Mettre en place un intervalle pour rafraîchir les données
+    const interval = setInterval(() => {
+      loadDashboardData();
+    }, 60000); // Rafraîchir toutes les minutes
+    
+    return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeRange]);
   // Simulation de mise à jour des données
   useEffect(() => {
     const interval = setInterval(() => {
@@ -59,33 +241,14 @@ export default function Monitoring() {
     return () => clearInterval(interval);
   }, []);
 
-  // Fonction pour rafraîchir les données
-  const refreshData = () => {
-    setLoading(true);
-    setTimeout(() => {
-      // Simuler de nouvelles données
-      const newData = performanceData.map(item => ({
-        ...item,
-        oracle: item.oracle + Math.floor(Math.random() * 10) - 5,
-        mysql: item.mysql + Math.floor(Math.random() * 10) - 5,
-        mongodb: item.mongodb + Math.floor(Math.random() * 10) - 5,
-        cpu: item.cpu + Math.floor(Math.random() * 10) - 5,
-        memory: parseFloat((item.memory + (Math.random() * 0.4 - 0.2)).toFixed(1)),
-        disk: item.disk + Math.floor(Math.random() * 5) - 2
-      }));
-      setPerformanceData(newData);
-      setLoading(false);
-    }, 1000);
-  };
-
   // Fonction pour changer la période
-  const changeTimeRange = (range) => {
-    setTimeRange(range);
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-    }, 800);
-  };
+  // const changeTimeRange = (range) => {
+  //   setTimeRange(range);
+  //   setLoading(true);
+  //   setTimeout(() => {
+  //     setLoading(false);
+  //   }, 800);
+  // };
 
   // Fonction pour exporter les données
   const exportData = () => {
@@ -437,8 +600,17 @@ export default function Monitoring() {
                     <div className="flex justify-between">
                       <span className="font-medium">{alert.type} - {alert.db}</span>
                       <span className="text-sm text-gray-500">{alert.timestamp}</span>
+                      <span className="text-sm text-gray-500">
+                      {new Date(alert.timestamp).toLocaleString('fr-FR')}
+                      </span>
                     </div>
                     <p className="text-gray-700">{alert.message}</p>
+                    <button
+                      onClick={() => resolveAlert(alert.id)}
+                      className="mt-2 px-3 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded"
+                    >
+                      Résoudre
+                    </button>
                   </div>
                 </div>
               </div>
