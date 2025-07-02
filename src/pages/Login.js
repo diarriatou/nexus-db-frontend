@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Database, Lock, User } from 'lucide-react';
 import API from '../api'; 
 
@@ -6,6 +7,7 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -21,7 +23,7 @@ export default function Login() {
       localStorage.setItem('token', access_token);
 
       // Rediriger l'utilisateur vers une page protégée
-      window.location = "/admin/Dashboard";
+      navigate('/admin/dashboard');
     } catch (err) {
       console.error(err);
       setError("Adresse email ou mot de passe incorrect.");

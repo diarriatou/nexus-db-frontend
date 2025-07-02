@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart2, Activity, AlertTriangle, Server, Database, Clock, RefreshCw, Filter, ChevronDown, Download } from 'lucide-react';
 import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import axios from 'axios';
+import API from '../../api';
 
 export default function Monitoring() {
   // État pour les données de performance
@@ -55,16 +55,16 @@ export default function Monitoring() {
     setLoading(true);
     try {
       // Récupérer toutes les connexions de base de données
-      const connectionsResponse = await axios.get('/api/monitoring/connections');
+      const connectionsResponse = await API.get('/monitoring/connections');
       const connections = connectionsResponse.data;
       
       // Récupérer le résumé pour chaque base de données
       const summaries = await Promise.all(
-        connections.map(conn => axios.get(`/api/monitoring/summary/${conn.id}`))
+        connections.map(conn => API.get(`/monitoring/summary/${conn.id}`))
       );
       
       // Récupérer les alertes actives
-      const alertsResponse = await axios.get('/api/monitoring/alerts?resolved=false&limit=10');
+      const alertsResponse = await API.get('/monitoring/alerts?resolved=false&limit=10');
       
       // Mise à jour des états
       setDatabases(connections);
@@ -109,7 +109,7 @@ export default function Monitoring() {
     
     try {
       const metricsPromises = databaseIds.map(dbId => 
-        axios.get(`/api/monitoring/metrics/${dbId}?start_time=${startTime.toISOString()}`)
+        API.get(`/monitoring/metrics/${dbId}?start_time=${startTime.toISOString()}`)
       );
       
       const metricsResponses = await Promise.all(metricsPromises);
@@ -174,7 +174,7 @@ export default function Monitoring() {
     try {
       // Collecter les métriques pour toutes les BDs
       await Promise.all(databases.map(db => 
-        axios.post(`/api/monitoring/metrics/collect/${db.id}`)
+        API.post(`/monitoring/metrics/collect/${db.id}`)
       ));
       await loadDashboardData(); // Recharger les données après la collecte
     } catch (error) {
@@ -187,9 +187,9 @@ export default function Monitoring() {
   // Fonction pour résoudre une alerte
   const resolveAlert = async (alertId) => {
     try {
-      await axios.put(`/api/monitoring/alerts/${alertId}/resolve`);
+      await API.put(`/monitoring/alerts/${alertId}/resolve`);
       // Mettre à jour la liste des alertes
-      const alertsResponse = await axios.get('/api/monitoring/alerts?resolved=false&limit=10');
+      const alertsResponse = await API.get('/monitoring/alerts?resolved=false&limit=10');
       setAlerts(alertsResponse.data);
     } catch (error) {
       console.error(`Erreur lors de la résolution de l'alerte ${alertId}:`, error);

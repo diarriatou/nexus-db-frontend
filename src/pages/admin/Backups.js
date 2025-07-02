@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { HardDrive, Calendar, Settings, AlertTriangle, Clock, RefreshCw, Search, ChevronDown, CheckCircle, XCircle, Trash, Edit, X } from 'lucide-react';
+import API from '../../api';
 
 export default function BackupsManagement() {
   // États pour les onglets et les filtres
@@ -19,24 +20,12 @@ export default function BackupsManagement() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [backupToDelete, setBackupToDelete] = useState(null);
   
-  // État pour les données
-  const [scheduledBackups, setScheduledBackups] = useState([
-    { id: 1, name: 'Oracle Production', frequency: 'Quotidien - 00:00', lastBackup: '10/03/2025 00:00', status: 'success', size: '4.2 GB', retention: '30 jours' },
-    { id: 2, name: 'MySQL Applications', frequency: 'Hebdomadaire - Dimanche 02:00', lastBackup: '09/03/2025 02:00', status: 'success', size: '1.8 GB', retention: '60 jours' },
-    { id: 3, name: 'PostgreSQL Analytics', frequency: 'Quotidien - 01:30', lastBackup: '10/03/2025 01:30', status: 'warning', size: '6.5 GB', retention: '14 jours' },
-    { id: 4, name: 'MongoDB Clients', frequency: 'Bi-hebdomadaire - Lun/Jeu 03:00', lastBackup: '07/03/2025 03:00', status: 'error', size: '2.3 GB', retention: '90 jours' },
-  ]);
-  
-  const [manualBackups, setManualBackups] = useState([
-    { id: 1, name: 'Oracle Production', date: '05/03/2025 14:22', user: 'admin@example.com', status: 'success', size: '4.1 GB', note: 'Avant mise à jour v3.5' },
-    { id: 2, name: 'MySQL Applications', date: '02/03/2025 09:15', user: 'martin@example.com', status: 'success', size: '1.8 GB', note: 'Backup mensuel' },
-    { id: 3, name: 'MongoDB Clients', date: '28/02/2025 16:40', user: 'sophie@example.com', status: 'error', size: '0 GB', note: 'Erreur connexion' },
-  ]);
-
-  const [restoreHistory, setRestoreHistory] = useState([
-    { id: 1, date: '01/03/2025 10:15', name: 'Oracle Production', backupDate: '28/02/2025', user: 'admin@example.com', status: 'success', duration: '15 min' },
-    { id: 2, date: '15/02/2025 16:30', name: 'MySQL Applications', backupDate: '14/02/2025', user: 'martin@example.com', status: 'success', duration: '8 min' },
-  ]);
+  // États pour les données
+  const [scheduledBackups, setScheduledBackups] = useState([]);
+  const [manualBackups, setManualBackups] = useState([]);
+  const [restoreHistory, setRestoreHistory] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   
   // États pour les formulaires
   const [newScheduledBackup, setNewScheduledBackup] = useState({
@@ -57,6 +46,113 @@ export default function BackupsManagement() {
     restoreMethod: 'replace',
     notifyUsers: true
   });
+  
+  // Charger les données au démarrage
+  useEffect(() => {
+    fetchBackupData();
+  }, []);
+
+  // Fonction pour charger toutes les données de sauvegarde
+  const fetchBackupData = async () => {
+    setLoading(true);
+    try {
+      // Charger les plannings de sauvegarde
+      const schedulesResponse = await API.get('/api/backups/schedules');
+      setScheduledBackups(schedulesResponse.data.map(schedule => ({
+        id: schedule.id,
+        name: schedule.name,
+        frequency: `${schedule.frequency} - ${schedule.backup_type}`,
+        lastBackup: schedule.last_backup ? new Date(schedule.last_backup).toLocaleString('fr-FR') : 'Jamais',
+        status: schedule.is_active ? 'success' : 'paused',
+        size: schedule.last_size || '0 GB',
+        retention: `${schedule.retention_days} jours`,
+        database_id: schedule.database_id
+      })));
+
+      // Charger les sauvegardes manuelles
+      const backupsResponse = await API.get('/api/backups/backups');
+      setManualBackups(backupsResponse.data.map(backup => ({
+        id: backup.id,
+        name: backup.database_name || `Base ${backup.database_id}`,
+        date: new Date(backup.started_at).toLocaleString('fr-FR'),
+        user: backup.created_by || 'Système',
+        status: backup.status,
+        size: backup.size || '0 GB',
+        note: backup.note || ''
+      })));
+
+      // Charger l'historique de restauration
+      const restoreResponse = await API.get('/api/backups/restores');
+      setRestoreHistory(restoreResponse.data.map(restore => ({
+        id: restore.id,
+        date: new Date(restore.restored_at).toLocaleString('fr-FR'),
+        name: restore.database_name || `Base ${restore.database_id}`,
+        backupDate: new Date(restore.backup_date).toLocaleDateString('fr-FR'),
+        user: restore.restored_by || 'Système',
+        status: restore.status,
+        duration: restore.duration || 'N/A'
+      })));
+
+    } catch (err) {
+      console.error('Erreur lors du chargement des données de sauvegarde:', err);
+      setError('Impossible de charger les données de sauvegarde');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fonction pour créer un nouveau planning de sauvegarde
+  const createBackupSchedule = async () => {
+    try {
+      await API.post('/api/backups/schedules', newScheduledBackup);
+      await fetchBackupData();
+      setShowScheduleModal(false);
+      setNewScheduledBackup({
+        name: '',
+        frequency: 'daily',
+        time: '00:00',
+        days: [],
+        retention: '30'
+      });
+    } catch (err) {
+      console.error('Erreur lors de la création du planning:', err);
+      setError('Erreur lors de la création du planning de sauvegarde');
+    }
+  };
+
+  // Fonction pour lancer une sauvegarde manuelle
+  const createManualBackup = async () => {
+    try {
+      await API.post('/api/backups/backups', newManualBackup);
+      await fetchBackupData();
+      setShowManualBackupModal(false);
+      setNewManualBackup({
+        name: '',
+        note: ''
+      });
+    } catch (err) {
+      console.error('Erreur lors de la création de la sauvegarde:', err);
+      setError('Erreur lors de la création de la sauvegarde');
+    }
+  };
+
+  // Fonction pour restaurer une sauvegarde
+  const restoreBackup = async () => {
+    try {
+      await API.post(`/api/backups/backups/${selectedBackup.id}/restore`, restoreOptions);
+      await fetchBackupData();
+      setShowRestoreModal(false);
+      setSelectedBackup(null);
+      setRestoreOptions({
+        targetEnvironment: 'production',
+        restoreMethod: 'replace',
+        notifyUsers: true
+      });
+    } catch (err) {
+      console.error('Erreur lors de la restauration:', err);
+      setError('Erreur lors de la restauration');
+    }
+  };
   
   // Fonctions de gestion des formulaires
   const handleScheduleFormChange = (e) => {
@@ -91,95 +187,17 @@ export default function BackupsManagement() {
   // Fonctions d'action
   const submitScheduleForm = (e) => {
     e.preventDefault();
-    
-    // Logique de création d'une sauvegarde planifiée
-    const frequencyText = newScheduledBackup.frequency === 'daily' 
-      ? 'Quotidien - ' + newScheduledBackup.time 
-      : newScheduledBackup.frequency === 'weekly' 
-        ? 'Hebdomadaire - ' + (newScheduledBackup.days.length > 0 ? newScheduledBackup.days.join('/') : 'Dimanche') + ' ' + newScheduledBackup.time
-        : 'Mensuel - ' + newScheduledBackup.time;
-    
-    const newBackup = {
-      id: scheduledBackups.length + 1,
-      name: newScheduledBackup.name,
-      frequency: frequencyText,
-      lastBackup: 'Pas encore exécuté',
-      status: 'pending',
-      size: '0 GB',
-      retention: newScheduledBackup.retention + ' jours'
-    };
-    
-    setScheduledBackups([...scheduledBackups, newBackup]);
-    setShowScheduleModal(false);
-    
-    // Réinitialiser le formulaire
-    setNewScheduledBackup({
-      name: '',
-      frequency: 'daily',
-      time: '00:00',
-      days: [],
-      retention: '30'
-    });
+    createBackupSchedule();
   };
   
   const submitManualBackupForm = (e) => {
     e.preventDefault();
-    
-    // Simuler une sauvegarde manuelle
-    const today = new Date();
-    const formattedDate = `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getFullYear()} ${today.getHours().toString().padStart(2, '0')}:${today.getMinutes().toString().padStart(2, '0')}`;
-    
-    const newBackup = {
-      id: manualBackups.length + 1,
-      name: newManualBackup.name,
-      date: formattedDate,
-      user: 'utilisateur_actuel@example.com', // Normalement récupéré du système d'authentification
-      status: 'success', // En production, ceci serait "pending" jusqu'à la fin du processus
-      size: 'Calcul en cours...',
-      note: newManualBackup.note
-    };
-    
-    setManualBackups([...manualBackups, newBackup]);
-    setShowManualBackupModal(false);
-    
-    // Réinitialiser le formulaire
-    setNewManualBackup({
-      name: '',
-      note: ''
-    });
-    
-    // Dans un cas réel, on démarrerait ici le processus de backup et on mettrait à jour l'état plus tard
+    createManualBackup();
   };
   
   const submitRestoreForm = (e) => {
     e.preventDefault();
-    
-    if (!selectedBackup) return;
-    
-    // Simuler une restauration
-    const today = new Date();
-    const formattedDate = `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getFullYear()} ${today.getHours().toString().padStart(2, '0')}:${today.getMinutes().toString().padStart(2, '0')}`;
-    
-    const newRestore = {
-      id: restoreHistory.length + 1,
-      date: formattedDate,
-      name: selectedBackup.name,
-      backupDate: selectedBackup.lastBackup || selectedBackup.date,
-      user: 'utilisateur_actuel@example.com',
-      status: 'success',
-      duration: Math.floor(Math.random() * 20) + 5 + ' min' // Simuler une durée
-    };
-    
-    setRestoreHistory([newRestore, ...restoreHistory]);
-    setShowRestoreModal(false);
-    setSelectedBackup(null);
-    
-    // Réinitialiser le formulaire
-    setRestoreOptions({
-      targetEnvironment: 'production',
-      restoreMethod: 'replace',
-      notifyUsers: true
-    });
+    restoreBackup();
   };
   
   const handleDeleteBackup = (backup, type) => {
@@ -594,6 +612,31 @@ export default function BackupsManagement() {
             </div>
           </div>
           
+          {/* Indicateur de chargement */}
+          {loading && (
+            <div className="flex items-center justify-center p-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <span className="ml-2 text-gray-600">Chargement des données de sauvegarde...</span>
+            </div>
+          )}
+
+          {/* Affichage d'erreur */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-6">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <AlertTriangle className="h-5 w-5 text-red-400" />
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-red-800">Erreur</h3>
+                  <div className="mt-2 text-sm text-red-700">
+                    {error}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          
           {/* Dashboard stats */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <div className="bg-white p-4 rounded-lg shadow flex items-center">
@@ -636,6 +679,7 @@ export default function BackupsManagement() {
         </div>
         
         {/* Tabs */}
+        {!loading && !error && (
         <div className="bg-white rounded-lg shadow mb-6">
           <div className="border-b border-gray-200">
             <nav className="flex">
@@ -906,6 +950,7 @@ export default function BackupsManagement() {
             )}
           </div>
         </div>
+        )}
       </div>
       
       {/* Modals */}

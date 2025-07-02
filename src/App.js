@@ -1,4 +1,3 @@
-
 import './App.css';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import LandingPage from './pages/LandingPage';
@@ -18,7 +17,9 @@ function App() {
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/documentation" element={<Documentation />} />
         <Route path="/admin" element={<AdminLayout />}>
+          <Route index element={<Dashboard />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="users" element={<Users />} />
           <Route path="databases" element={<DatabaseConfig />} />
@@ -27,10 +28,6 @@ function App() {
           <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>
-      <Routes>
-      <Route path="/documentation" element={<Documentation />} />
-      </Routes>
-
     </BrowserRouter>
   );
 }

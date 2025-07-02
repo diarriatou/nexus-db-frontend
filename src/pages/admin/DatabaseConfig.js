@@ -1,49 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Settings, AlertCircle, Check, Database, X, Save, Search, RefreshCw } from 'lucide-react';
+import API from '../../api';
 
 export default function DatabaseConfig() {
   // État initial des bases de données
-  const [databases, setDatabases] = useState([
-    { 
-      id: 1, 
-      name: 'Oracle', 
-      host: 'localhost', 
-      port: '1521', 
-      database: 'ORCL', 
-      username: 'admin',
-      password: '••••••••',
-      status: 'connected',
-      lastChecked: '11/03/2025 10:30',
-      type: 'oracle',
-      favorite: true
-    },
-    { 
-      id: 2, 
-      name: 'MySQL', 
-      host: 'localhost', 
-      port: '3306', 
-      database: 'mysql_prod', 
-      username: 'root',
-      password: '••••••',
-      status: 'connected',
-      lastChecked: '11/03/2025 10:15',
-      type: 'mysql',
-      favorite: false
-    },
-    { 
-      id: 3, 
-      name: 'MongoDB', 
-      host: 'localhost', 
-      port: '27017', 
-      database: 'mongo_dev', 
-      username: 'mongouser',
-      password: '•••••••••',
-      status: 'disconnected',
-      lastChecked: '10/03/2025 15:45',
-      type: 'mongodb',
-      favorite: false
-    }
-  ]);
+  const [databases, setDatabases] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   // État pour gérer les tests de connexion
   const [testing, setTesting] = useState(null);
@@ -63,56 +26,97 @@ export default function DatabaseConfig() {
   const [formData, setFormData] = useState({
     name: '',
     host: '',
-    port: '',
-    database: '',
+    port: 3306,
+    database_name: '',
     username: '',
     password: '',
-    type: 'mysql',
-    favorite: false
+    db_type: 'mysql',
+    description: ''
   });
+
+  // Charger les bases de données au démarrage
+  useEffect(() => {
+    fetchDatabases();
+  }, []);
+
+  // Fonction pour récupérer les bases de données depuis l'API
+  const fetchDatabases = async () => {
+    setLoading(true);
+    try {
+      const response = await API.get('/api/users/databases');
+      const formattedDatabases = response.data.map(db => ({
+        id: db.id,
+        name: db.name,
+        host: db.host,
+        port: db.port,
+        database: db.database_name,
+        username: db.username,
+        password: '••••••••',
+        status: db.is_active ? 'connected' : 'disconnected',
+        lastChecked: new Date(db.updated_at).toLocaleString('fr-FR'),
+        type: db.db_type,
+        favorite: false,
+        description: db.description
+      }));
+      setDatabases(formattedDatabases);
+    } catch (err) {
+      console.error('Erreur lors de la récupération des bases de données:', err);
+      setError('Impossible de charger les bases de données');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Fonction pour pré-remplir le port selon le type de base de données
   useEffect(() => {
-    // Si le formulaire est en mode d'ajout et le champ de port est vide ou a une valeur par défaut
-    if (!editMode && (!formData.port || ['3306', '1521', '5432', '27017', '1433'].includes(formData.port))) {
+    if (!editMode && (!formData.port || [3306, 1521, 5432, 27017, 1433].includes(formData.port))) {
       const portDefaults = {
-        mysql: '3306',
-        postgresql: '5432',
-        oracle: '1521',
-        mongodb: '27017',
-        sqlserver: '1433'
+        mysql: 3306,
+        postgresql: 5432,
+        oracle: 1521,
+        mongodb: 27017,
+        sqlserver: 1433
       };
       
-      if (portDefaults[formData.type]) {
-        setFormData({ ...formData, port: portDefaults[formData.type] });
+      if (portDefaults[formData.db_type]) {
+        setFormData(prev => ({ ...prev, port: portDefaults[formData.db_type] }));
       }
     }
-  }, [editMode, formData]);
+  }, [editMode, formData.db_type, formData.port]);
 
   // Tester une connexion
-  const testConnection = (id) => {
+  const testConnection = async (id) => {
     setTesting(id);
-    // Simuler un test de connexion
-    setTimeout(() => {
+    try {
+      // Appel API pour tester la connexion
+      await API.post(`/api/monitoring/connections/${id}/test`);
+      
+      // Mettre à jour le statut
       setDatabases(databases.map(db => {
         if (db.id === id) {
-          const result = Math.random() > 0.2 ? 'connected' : 'disconnected';
           return {
             ...db,
-            status: result,
-            lastChecked: new Date().toLocaleString('fr-FR', { 
-              day: '2-digit', 
-              month: '2-digit', 
-              year: 'numeric', 
-              hour: '2-digit', 
-              minute: '2-digit' 
-            })
+            status: 'connected',
+            lastChecked: new Date().toLocaleString('fr-FR')
           };
         }
         return db;
       }));
+    } catch (err) {
+      console.error('Erreur lors du test de connexion:', err);
+      setDatabases(databases.map(db => {
+        if (db.id === id) {
+          return {
+            ...db,
+            status: 'disconnected',
+            lastChecked: new Date().toLocaleString('fr-FR')
+          };
+        }
+        return db;
+      }));
+    } finally {
       setTesting(null);
-    }, 1500);
+    }
   };
 
   // Activer le mode d'édition pour une connexion
@@ -125,11 +129,11 @@ export default function DatabaseConfig() {
         name: db.name,
         host: db.host,
         port: db.port,
-        database: db.database,
+        database_name: db.database,
         username: db.username,
-        password: db.password,
-        type: db.type || 'mysql',
-        favorite: db.favorite || false
+        password: '',
+        db_type: db.type || 'mysql',
+        description: db.description || ''
       });
       setEditMode(id);
     }
@@ -145,66 +149,80 @@ export default function DatabaseConfig() {
   };
 
   // Sauvegarder les modifications d'une connexion existante
-  const saveChanges = (id) => {
-    setDatabases(databases.map(db => {
-      if (db.id === id) {
-        return {
-          ...db,
-          name: formData.name,
-          host: formData.host,
-          port: formData.port,
-          database: formData.database,
-          username: formData.username,
-          password: formData.password,
-          type: formData.type,
-          favorite: formData.favorite,
-          status: 'disconnected',
-          lastChecked: 'Jamais (modifié)'
-        };
+  const saveChanges = async (id) => {
+    try {
+      const updateData = {
+        name: formData.name,
+        host: formData.host,
+        port: parseInt(formData.port),
+        database_name: formData.database_name,
+        username: formData.username,
+        db_type: formData.db_type,
+        description: formData.description
+      };
+
+      // Inclure le mot de passe seulement s'il a été modifié
+      if (formData.password) {
+        updateData.password = formData.password;
       }
-      return db;
-    }));
-    setEditMode(null);
+
+      await API.put(`/api/users/databases/${id}`, updateData);
+      
+      // Rafraîchir la liste
+      await fetchDatabases();
+      setEditMode(null);
+    } catch (err) {
+      console.error('Erreur lors de la mise à jour:', err);
+      setError('Erreur lors de la mise à jour de la base de données');
+    }
   };
 
   // Ajouter une nouvelle connexion
-  const addNewConnection = () => {
-    const newId = Math.max(...databases.map(db => db.id), 0) + 1;
-    const newConnection = {
-      id: newId,
-      name: formData.name,
-      host: formData.host,
-      port: formData.port,
-      database: formData.database,
-      username: formData.username,
-      password: formData.password,
-      type: formData.type,
-      favorite: formData.favorite,
-      status: 'disconnected',
-      lastChecked: 'Jamais'
-    };
-    
-    setDatabases([...databases, newConnection]);
-    setShowNewForm(false);
-    // Réinitialiser le formulaire
-    setFormData({
-      name: '',
-      host: '',
-      port: '',
-      database: '',
-      username: '',
-      password: '',
-      type: 'mysql',
-      favorite: false
-    });
+  const addNewConnection = async () => {
+    try {
+      const newDatabase = {
+        name: formData.name,
+        host: formData.host,
+        port: parseInt(formData.port),
+        database_name: formData.database_name,
+        username: formData.username,
+        password: formData.password,
+        db_type: formData.db_type,
+        description: formData.description
+      };
+
+      await API.post('/api/users/databases', newDatabase);
+      
+      // Rafraîchir la liste
+      await fetchDatabases();
+      setShowNewForm(false);
+      
+      // Réinitialiser le formulaire
+      setFormData({
+        name: '',
+        host: '',
+        port: 3306,
+        database_name: '',
+        username: '',
+        password: '',
+        db_type: 'mysql',
+        description: ''
+      });
+    } catch (err) {
+      console.error('Erreur lors de l\'ajout:', err);
+      setError('Erreur lors de l\'ajout de la base de données');
+    }
   };
 
   // Supprimer une connexion
-  const deleteConnection = (id) => {
-    setDatabases(databases.filter(db => db.id !== id));
-    setShowDeleteConfirm(null);
-    if (editMode === id) {
-      setEditMode(null);
+  const deleteConnection = async (id) => {
+    try {
+      await API.delete(`/api/users/databases/${id}`);
+      await fetchDatabases();
+      setShowDeleteConfirm(null);
+    } catch (err) {
+      console.error('Erreur lors de la suppression:', err);
+      setError('Erreur lors de la suppression de la base de données');
     }
   };
 
@@ -271,8 +289,8 @@ export default function DatabaseConfig() {
           <label htmlFor="type" className="block text-sm font-medium text-gray-700 mb-1">Type</label>
           <select
             id="type"
-            name="type"
-            value={formData.type}
+            name="db_type"
+            value={formData.db_type}
             onChange={handleInputChange}
             className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
           >
@@ -315,8 +333,8 @@ export default function DatabaseConfig() {
           <input
             type="text"
             id="database"
-            name="database"
-            value={formData.database}
+            name="database_name"
+            value={formData.database_name}
             onChange={handleInputChange}
             className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
             placeholder="Nom de la base"
@@ -430,12 +448,12 @@ export default function DatabaseConfig() {
                 setFormData({
                   name: '',
                   host: '',
-                  port: '',
-                  database: '',
+                  port: 3306,
+                  database_name: '',
                   username: '',
                   password: '',
-                  type: 'mysql',
-                  favorite: false
+                  db_type: 'mysql',
+                  description: ''
                 });
               }}
               className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
@@ -473,217 +491,219 @@ export default function DatabaseConfig() {
           </div>
         </div>
       </div>
-      
-      {/* Formulaire de nouvelle connexion (popup) */}
-      {showNewForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow max-w-3xl w-full p-6 max-h-screen overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold">Nouvelle Connexion</h2>
-              <button 
-                onClick={() => setShowNewForm(false)} 
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <X className="h-5 w-5" />
-              </button>
+
+      {/* Indicateur de chargement */}
+      {loading && (
+        <div className="flex items-center justify-center p-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <span className="ml-2 text-gray-600">Chargement des bases de données...</span>
+        </div>
+      )}
+
+      {/* Affichage d'erreur */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-6">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <AlertCircle className="h-5 w-5 text-red-400" />
             </div>
-            
-            {renderForm()}
-            
-            <div className="flex justify-end space-x-2 mt-4">
-              <button 
-                onClick={() => setShowNewForm(false)}
-                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-100"
-              >
-                Annuler
-              </button>
-              <button 
-                onClick={addNewConnection}
-                disabled={!formData.name || !formData.host}
-                className={`px-4 py-2 rounded-md ${
-                  !formData.name || !formData.host 
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
-                }`}
-              >
-                Ajouter
-              </button>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-red-800">Erreur</h3>
+              <div className="mt-2 text-sm text-red-700">
+                {error}
+              </div>
             </div>
           </div>
         </div>
       )}
-      
-      {/* Modal de confirmation de suppression */}
-      {showDeleteConfirm && (
-        <DeleteConfirmationModal 
-          id={showDeleteConfirm}
-          name={databases.find(db => db.id === showDeleteConfirm)?.name}
-          onCancel={() => setShowDeleteConfirm(null)}
-          onConfirm={deleteConnection}
-        />
-      )}
 
-      {/* Grille des connexions de base de données */}
-      {sortedDatabases.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {sortedDatabases.map((db) => (
-            <div key={db.id} className={`bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow border-l-4 ${
-              db.favorite ? 'border-yellow-400' : 'border-transparent'
-            }`}>
-              {/* Mode d'édition */}
-              {editMode === db.id ? (
-                <>
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg font-semibold">Modifier la connexion</h2>
-                    <div className="flex space-x-2">
-                      <button 
-                        onClick={() => saveChanges(db.id)}
-                        className="p-2 text-green-600 hover:bg-green-100 rounded-full transition-colors"
-                        title="Sauvegarder"
-                      >
-                        <Save className="h-5 w-5" />
-                      </button>
-                      <button 
-                        onClick={() => toggleEditMode(db.id)}
-                        className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
-                        title="Annuler"
-                      >
-                        <X className="h-5 w-5" />
-                      </button>
-                    </div>
-                  </div>
-                  
-                  {renderForm(true)}
-                  
-                  <div className="mt-4 flex justify-between">
-                    <button 
-                      onClick={() => setShowDeleteConfirm(db.id)}
-                      className="px-4 py-2 bg-red-100 text-red-600 rounded hover:bg-red-200 transition-colors"
-                    >
-                      Supprimer
-                    </button>
-                    <button 
-                      onClick={() => testConnection(db.id)}
-                      disabled={testing === db.id}
-                      className={`px-4 py-2 rounded transition-colors flex items-center
-                        ${testing === db.id 
-                          ? 'bg-gray-200 text-gray-500 cursor-not-allowed' 
-                          : 'bg-blue-100 text-blue-600 hover:bg-blue-200'}`}
-                    >
-                      <RefreshCw className={`h-4 w-4 mr-2 ${testing === db.id ? 'animate-spin' : ''}`} />
-                      {testing === db.id ? 'Test en cours...' : 'Tester'}
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  {/* Mode affichage */}
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center">
-                      {getDatabaseTypeIcon(db.type)}
-                      <h2 className="text-lg font-semibold">{db.name}</h2>
-                      {db.favorite && (
-                        <span className="ml-2 text-yellow-500">★</span>
-                      )}
-                    </div>
-                    <div className="relative">
-                      <button 
-                        onClick={() => toggleEditMode(db.id)}
-                        className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
-                        title="Modifier"
-                      >
-                        <Settings className="h-5 w-5" />
-                      </button>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Host:</span>
-                      <span className="font-medium">{db.host}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Port:</span>
-                      <span className="font-medium">{db.port}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Database:</span>
-                      <span className="font-medium">{db.database}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Utilisateur:</span>
-                      <span className="font-medium">{db.username}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Status:</span>
-                      {getStatusBadge(db.status)}
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Dernière vérification:</span>
-                      <span className="text-sm">{db.lastChecked}</span>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-4 flex space-x-2">
-                    <button 
-                      onClick={() => toggleFavorite(db.id)}
-                      className={`flex-1 px-2 py-2 rounded transition-colors flex items-center justify-center ${
-                        db.favorite 
-                          ? 'bg-yellow-100 text-yellow-600 hover:bg-yellow-200' 
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      }`}
-                      title={db.favorite ? "Retirer des favoris" : "Ajouter aux favoris"}
-                    >
-                      {db.favorite ? "★ Favori" : "☆ Favori"}
-                    </button>
-                    <button 
-                      onClick={() => testConnection(db.id)} 
-                      disabled={testing === db.id}
-                      className={`flex-1 px-2 py-2 rounded transition-colors flex items-center justify-center
-                        ${testing === db.id 
-                          ? 'bg-gray-200 text-gray-500 cursor-not-allowed' 
-                          : 'bg-blue-100 text-blue-600 hover:bg-blue-200'}`}
-                    >
-                      {testing === db.id ? (
-                        <>
-                          <RefreshCw className="animate-spin h-4 w-4 mr-2" />
-                          Test...
-                        </>
-                      ) : (
-                        <>
-                          <RefreshCw className="h-4 w-4 mr-2" />
-                          Tester
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </>
-              )}
+      {/* Contenu principal seulement si pas de chargement */}
+      {!loading && (
+        <>
+          {/* Formulaire de nouvelle connexion (popup) */}
+          {showNewForm && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-lg shadow max-w-3xl w-full p-6 max-h-screen overflow-y-auto">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-lg font-semibold">Nouvelle Connexion</h2>
+                  <button 
+                    onClick={() => setShowNewForm(false)} 
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+                
+                {renderForm()}
+                
+                <div className="flex justify-end space-x-2 mt-4">
+                  <button 
+                    onClick={() => setShowNewForm(false)}
+                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-100"
+                  >
+                    Annuler
+                  </button>
+                  <button 
+                    onClick={addNewConnection}
+                    disabled={!formData.name || !formData.host}
+                    className={`px-4 py-2 rounded-md ${
+                      !formData.name || !formData.host 
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                        : 'bg-blue-600 text-white hover:bg-blue-700'
+                    }`}
+                  >
+                    Ajouter
+                  </button>
+                </div>
+              </div>
             </div>
-          ))}
-        </div>
-      ) : (
-        <div className="bg-white p-8 rounded-lg shadow text-center">
-          <Database className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold mb-2">Aucune connexion trouvée</h2>
-          <p className="text-gray-500 mb-4">
-            {searchTerm || filterStatus !== 'all'
-              ? "Aucune connexion ne correspond à vos critères de recherche."
-              : "Ajoutez votre première connexion à une base de données."
-            }
-          </p>
-          <button 
-            onClick={() => {
-              setShowNewForm(true);
-              setSearchTerm('');
-              setFilterStatus('all');
-            }}
-            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-          >
-            <Plus className="h-5 w-5 mr-2" />
-            Nouvelle Connexion
-          </button>
-        </div>
+          )}
+          
+          {/* Modal de confirmation de suppression */}
+          {showDeleteConfirm && (
+            <DeleteConfirmationModal 
+              id={showDeleteConfirm}
+              name={databases.find(db => db.id === showDeleteConfirm)?.name}
+              onCancel={() => setShowDeleteConfirm(null)}
+              onConfirm={deleteConnection}
+            />
+          )}
+
+          {/* Grille des connexions de base de données */}
+          {sortedDatabases.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {sortedDatabases.map((db) => (
+                <div key={db.id} className={`bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow border-l-4 ${
+                  db.favorite ? 'border-yellow-400' : 'border-transparent'
+                }`}>
+                  {/* Mode d'édition */}
+                  {editMode === db.id ? (
+                    <>
+                      <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-lg font-semibold">Modifier la connexion</h2>
+                        <div className="flex space-x-2">
+                          <button 
+                            onClick={() => saveChanges(db.id)}
+                            className="p-2 text-green-600 hover:bg-green-100 rounded-full transition-colors"
+                            title="Sauvegarder"
+                          >
+                            <Save className="h-5 w-5" />
+                          </button>
+                          <button 
+                            onClick={() => toggleEditMode(db.id)}
+                            className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
+                            title="Annuler"
+                          >
+                            <X className="h-5 w-5" />
+                          </button>
+                        </div>
+                      </div>
+                      
+                      {renderForm(true)}
+                      
+                      <div className="mt-4 flex justify-between">
+                        <button 
+                          onClick={() => setShowDeleteConfirm(db.id)}
+                          className="px-4 py-2 bg-red-100 text-red-600 rounded hover:bg-red-200 transition-colors"
+                        >
+                          Supprimer
+                        </button>
+                        <button 
+                          onClick={() => testConnection(db.id)}
+                          disabled={testing === db.id}
+                          className={`px-4 py-2 rounded transition-colors flex items-center
+                            ${testing === db.id 
+                              ? 'bg-gray-200 text-gray-500 cursor-not-allowed' 
+                              : 'bg-blue-100 text-blue-600 hover:bg-blue-200'}`}
+                        >
+                          <RefreshCw className={`h-4 w-4 mr-2 ${testing === db.id ? 'animate-spin' : ''}`} />
+                          {testing === db.id ? 'Test en cours...' : 'Tester'}
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {/* Mode affichage */}
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center space-x-2">
+                          {getDatabaseTypeIcon(db.type)}
+                          <div>
+                            <h3 className="font-semibold text-gray-900">{db.name}</h3>
+                            <p className="text-sm text-gray-500">{db.host}:{db.port}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                          {getStatusBadge(db.status)}
+                          <button 
+                            onClick={() => toggleFavorite(db.id)}
+                            className={`p-1 rounded-full transition-colors ${
+                              db.favorite 
+                                ? 'text-yellow-500 hover:text-yellow-600' 
+                                : 'text-gray-400 hover:text-yellow-500'
+                            }`}
+                          >
+                            <svg className="h-4 w-4" fill={db.favorite ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2 mb-4">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-500">Base de données:</span>
+                          <span className="font-medium">{db.database}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-500">Utilisateur:</span>
+                          <span className="font-medium">{db.username}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-500">Dernière vérification:</span>
+                          <span className="font-medium">{db.lastChecked}</span>
+                        </div>
+                      </div>
+                      
+                      <div className="flex justify-between items-center">
+                        <button 
+                          onClick={() => toggleEditMode(db.id)}
+                          className="flex items-center px-3 py-1 text-sm text-blue-600 hover:bg-blue-100 rounded transition-colors"
+                        >
+                          <Settings className="h-4 w-4 mr-1" />
+                          Modifier
+                        </button>
+                        <button 
+                          onClick={() => testConnection(db.id)}
+                          disabled={testing === db.id}
+                          className={`flex items-center px-3 py-1 text-sm rounded transition-colors
+                            ${testing === db.id 
+                              ? 'bg-gray-200 text-gray-500 cursor-not-allowed' 
+                              : 'text-green-600 hover:bg-green-100'}`}
+                        >
+                          <RefreshCw className={`h-4 w-4 mr-1 ${testing === db.id ? 'animate-spin' : ''}`} />
+                          {testing === db.id ? 'Test...' : 'Tester'}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <Database className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Aucune base de données configurée</h3>
+              <p className="text-gray-500 mb-4">Commencez par ajouter votre première connexion de base de données.</p>
+              <button 
+                onClick={() => setShowNewForm(true)}
+                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              >
+                <Plus className="h-5 w-5 mr-2" />
+                Ajouter une connexion
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

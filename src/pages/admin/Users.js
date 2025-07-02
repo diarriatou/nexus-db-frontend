@@ -1,8 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Users, UserPlus, Search, Filter, MoreHorizontal, Edit, Trash2, Shield, Database, X, Check, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import API from '../../api';
 
 export default function UsersManagement() {
+  const navigate = useNavigate();
+  
   // États de la page principale
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRole, setSelectedRole] = useState('Tous');
@@ -59,18 +62,12 @@ export default function UsersManagement() {
       API.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     } else {
       // Rediriger vers la page de connexion si le token n'est pas présent
-      window.location = "/login";
+      navigate('/login');
     }
-  }, []);
-
-  //Charger les utilisateur et les bases au demarrage
-  useEffect(()=>{
-    fetchUsers();
-    fetchDatabases();
-  },[]);
+  }, [navigate]);
 
   // Fonction pour récupérer les utilisateurs depuis l'API
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
       const response = await API.get('/api/users');
@@ -94,7 +91,7 @@ export default function UsersManagement() {
       if (err.response && err.response.status === 401) {
         // Token expiré ou invalide
         localStorage.removeItem('token');
-        window.location = "/login";
+        navigate('/login');
       } else {
         setError('Impossible de charger les utilisateurs');
         // Garder les données de test en cas d'échec
@@ -112,10 +109,10 @@ export default function UsersManagement() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [navigate]);
 
   // Fonction pour récupérer les bases de données depuis l'API
-  const fetchDatabases = async () => {
+  const fetchDatabases = useCallback(async () => {
     try {
       const response = await API.get('/api/users/databases');
       if (response.data && response.data.length > 0) {
@@ -126,7 +123,13 @@ export default function UsersManagement() {
       console.error('Erreur lors de la récupération des bases de données:', err);
       // On garde les options par défaut en cas d'erreur
     }
-  };
+  }, []);
+
+  //Charger les utilisateur et les bases au demarrage
+  useEffect(()=>{
+    fetchUsers();
+    fetchDatabases();
+  },[fetchUsers, fetchDatabases]);
 
   // Fonction modifiée pour créer/mettre à jour un utilisateur via l'API
   const handleSubmitForm = async (e) => {
@@ -447,103 +450,133 @@ export default function UsersManagement() {
 
         {/* Tableau des utilisateurs */}
         <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Utilisateur
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Rôle
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Bases de données
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Statut
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Dernière activité
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {currentUsers.length > 0 ? (
-                  currentUsers.map(user => (
-                    <tr key={user.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                            <span className="text-blue-600 font-medium">{user.name.charAt(0)}</span>
+          {/* Indicateur de chargement */}
+          {loading && (
+            <div className="flex items-center justify-center p-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <span className="ml-2 text-gray-600">Chargement des utilisateurs...</span>
+            </div>
+          )}
+
+          {/* Affichage d'erreur */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-md p-4 m-4">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-red-800">Erreur</h3>
+                  <div className="mt-2 text-sm text-red-700">
+                    {error}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Contenu du tableau seulement si pas de chargement et pas d'erreur */}
+          {!loading && !error && (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Utilisateur
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Rôle
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Bases de données
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Statut
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Dernière activité
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {currentUsers.length > 0 ? (
+                    currentUsers.map(user => (
+                      <tr key={user.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                              <span className="text-blue-600 font-medium">{user.name.charAt(0)}</span>
+                            </div>
+                            <div className="ml-4">
+                              <div className="text-sm font-medium text-gray-900">{user.name}</div>
+                              <div className="text-sm text-gray-500">{user.email}</div>
+                            </div>
                           </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                            <div className="text-sm text-gray-500">{user.email}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-3 py-1 inline-flex items-center text-xs leading-5 font-semibold rounded-full ${user.role === 'Administrateur' ? 'bg-purple-100 text-purple-800' : user.role === 'DBA' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>
+                            {getRoleIcon(user.role)}
+                            {user.role}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <div className="flex flex-wrap gap-1">
+                            {user.databases.map(db => (
+                              <span key={db} className="px-2 py-1 bg-gray-100 rounded-md text-xs">
+                                {db}
+                              </span>
+                            ))}
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-3 py-1 inline-flex items-center text-xs leading-5 font-semibold rounded-full ${user.role === 'Administrateur' ? 'bg-purple-100 text-purple-800' : user.role === 'DBA' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>
-                          {getRoleIcon(user.role)}
-                          {user.role}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <div className="flex flex-wrap gap-1">
-                          {user.databases.map(db => (
-                            <span key={db} className="px-2 py-1 bg-gray-100 rounded-md text-xs">
-                              {db}
-                            </span>
-                          ))}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(user.status)}`}>
-                          {user.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {user.lastActive}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex justify-end items-center space-x-2">
-                          <button 
-                            className="p-1 rounded-full hover:bg-gray-100 text-blue-600" 
-                            title="Modifier"
-                            onClick={() => openEditUserForm(user)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </button>
-                          <button 
-                            className="p-1 rounded-full hover:bg-gray-100 text-red-600" 
-                            title="Supprimer"
-                            onClick={() => openDeleteConfirmation(user)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                          <div className="relative">
-                            <button className="p-1 rounded-full hover:bg-gray-100 text-gray-500" title="Plus d'options">
-                              <MoreHorizontal className="h-4 w-4" />
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(user.status)}`}>
+                            {user.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {user.lastActive}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <div className="flex justify-end items-center space-x-2">
+                            <button 
+                              className="p-1 rounded-full hover:bg-gray-100 text-blue-600" 
+                              title="Modifier"
+                              onClick={() => openEditUserForm(user)}
+                            >
+                              <Edit className="h-4 w-4" />
                             </button>
+                            <button 
+                              className="p-1 rounded-full hover:bg-gray-100 text-red-600" 
+                              title="Supprimer"
+                              onClick={() => openDeleteConfirmation(user)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                            <div className="relative">
+                              <button className="p-1 rounded-full hover:bg-gray-100 text-gray-500" title="Plus d'options">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </button>
+                            </div>
                           </div>
-                        </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="6" className="px-6 py-4 text-center text-gray-500">
+                        Aucun utilisateur trouvé
                       </td>
                     </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="6" className="px-6 py-4 text-center text-gray-500">
-                      Aucun utilisateur trouvé
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
           
           {/* Pagination */}
           <div className="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
